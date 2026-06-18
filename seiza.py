@@ -1,7 +1,7 @@
 import random
 from datetime import datetime
 
-# 12星座占いプログラム
+# 12星座占い プログラム
 # 生年月日から星座を判定し、運勢を占います。
 
 # 星座のリストと期間
