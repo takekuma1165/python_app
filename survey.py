@@ -1,4 +1,5 @@
 from pathlib import Path
+from io import BytesIO
 import csv
 
 import streamlit as st
@@ -35,6 +36,14 @@ def export_sheet_to_csv(sheet) -> None:
     with CSV_PATH.open("w", newline="", encoding="utf-8-sig") as csv_file:
         writer = csv.writer(csv_file)
         writer.writerows(rows)
+
+
+def export_workbook_to_bytes() -> bytes:
+    workbook, _ = get_or_create_sheet()
+    stream = BytesIO()
+    workbook.save(stream)
+    stream.seek(0)
+    return stream.read()
 
 
 def save_answer(data: dict[str, str]) -> None:
@@ -110,11 +119,8 @@ st.subheader("新規登録")
 with st.form("survey_form"):
     name = st.text_input("名前")
     age = st.number_input("年齢", min_value=0, max_value=120, step=1)
-    gender = st.radio("性別", ["男性", "女性", "その他"], horizontal=True)
-    symptoms = st.multiselect(
-        "症状",
-        ["頭痛", "風邪", "目の疲れ", "便秘", "その他"],
-    )
+    gender = st.radio("性 別", ["男性", "女性"], horizontal=True)
+    symptoms = st.multiselect("症状", ["頭痛", "風邪", "目の疲れ", "便秘", "その他"])
     medicine = st.radio("薬", ["鎮痛剤", "解熱剤", "風邪薬", "目薬", "その他"], horizontal=True)
 
     submitted = st.form_submit_button("保存する", use_container_width=True)
@@ -138,10 +144,18 @@ if submitted:
 
 st.markdown("</div>", unsafe_allow_html=True)
 
+st.download_button(
+    "Excel出力",
+    data=export_workbook_to_bytes(),
+    file_name="survey_results.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    use_container_width=True,
+)
+
 st.markdown("---")
 
-st.subheader("登録済み一覧")
 answers = load_answers()
+
 if answers:
     search_word = st.text_input("検索", placeholder="名前・症状・薬で検索")
     filtered_answers = []
@@ -158,7 +172,8 @@ if answers:
                     f"""
                     <div class="card">
                         <strong>{row[0] or '名無し'}</strong><br>
-                        年齢: {row[1]} / 性別: {row[2]}<br>
+                        年齢: {row[1]}<br>
+                        性別: {row[2]}<br>
                         症状: {row[3]}<br>
                         薬: {row[4]}
                     </div>
@@ -176,7 +191,7 @@ if answers:
             st.warning(f"{pending_name} を削除しますか？")
             col_a, col_b = st.columns(2)
             with col_a:
-                if st.button("はい、削除する", key="confirm_delete_yes"):
+                if st.button("削除する", key="confirm_delete_yes"):
                     delete_answer(pending_index)
                     st.session_state["pending_delete_index"] = None
                     st.session_state["pending_delete_name"] = ""
