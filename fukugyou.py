@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from datetime import datetime
+import tkinter as tk
+from tkinter import ttk, messagebox
 
 def ask_num(prompt, cast=float, default=None):
     while True:
@@ -129,21 +131,246 @@ def get_sidegig_recommendations(score, risk_tolerance, skill_level, time_hours):
     
     return category, tips
 
+def build_note_text(score, category, tips, monthly_income, time_hours, skill_level,
+                    risk_tolerance, workplace_allows, family_support, job_security):
+    """Note/SNSにそのまま貼り付けられる文章を作成する"""
+    lines = []
+    lines.append("副業診断結果")
+    lines.append(f"診断日時: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    lines.append(f"副業適性スコア: {score}")
+    lines.append(f"診断結果: {category}")
+    lines.append("")
+    lines.append("あなたへのアドバイス")
+    for tip in tips:
+        tip_text = tip.replace("\n", " ").strip()
+        if tip_text.startswith("---"):
+            lines.append("")
+            lines.append(tip_text.replace("---", "").strip())
+        else:
+            lines.append(f"・{tip_text}")
+    lines.append("")
+    lines.append("入力内容")
+    lines.append(f"月収: {monthly_income}万円")
+    lines.append(f"週の副業時間: {time_hours}時間")
+    lines.append(f"スキルレベル: {skill_level}/5")
+    lines.append(f"リスク許容度: {risk_tolerance}/5")
+    lines.append(f"職場の副業許可: {'あり' if workplace_allows else 'なし'}")
+    lines.append(f"家族の支持: {'あり' if family_support else 'なし'}")
+    lines.append(f"現職の安定性: {job_security}/5")
+    return "\n".join(lines)
+
+
+def show_result_window(score, category, tips, monthly_income, time_hours, skill_level,
+                       risk_tolerance, workplace_allows, family_support, job_security):
+    """診断結果を見やすい別ウィンドウで表示する"""
+    try:
+        result_window = tk.Tk()
+    except tk.TclError:
+        return
+
+    result_window.title("診断結果")
+    result_window.geometry("740x800")
+    result_window.resizable(False, False)
+    result_window.configure(bg="#e9e0d1")
+
+    style = ttk.Style(result_window)
+    try:
+        style.theme_use("clam")
+    except tk.TclError:
+        pass
+
+    style.configure("Result.TFrame", background="#fdf8f0")
+    style.configure("Main.TFrame", background="#e9e0d1")
+    style.configure("Title.TLabel", background="#e9e0d1", foreground="#3a2f25", font=("Yu Gothic UI", 24, "bold"))
+    style.configure("Score.TLabel", background="#fdf8f0", foreground="#875f2d", font=("Yu Gothic UI", 14, "bold"))
+    style.configure("Body.TLabel", background="#ffffff", foreground="#4b4b4b", font=("Yu Gothic UI", 11))
+
+    outer = ttk.Frame(result_window, style="Main.TFrame", padding=24)
+    outer.pack(fill="both", expand=True)
+
+    card = ttk.Frame(outer, style="Result.TFrame", padding=24)
+    card.pack(fill="both", expand=True)
+
+    ttk.Label(card, text="診断結果", style="Title.TLabel").pack(anchor="center", pady=(0, 10))
+    ttk.Label(card, text=f"副業適性スコア: {score}", style="Score.TLabel").pack(anchor="center", pady=(0, 6))
+    ttk.Label(card, text=f"総合判定: {category}", style="Score.TLabel").pack(anchor="center", pady=(0, 12))
+
+    text_area = tk.Text(card, height=24, width=84, wrap="word", bg="#fcfaf6", fg="#333333", relief="solid", bd=1, padx=14, pady=14, font=("Yu Gothic UI", 11))
+    text_area.pack(fill="both", expand=True)
+    text_area.insert("end", f"診断日時: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+    text_area.insert("end", "あなたへのアドバイス\n")
+    for tip in tips:
+        clean_tip = tip.replace("\n", " ").strip()
+        if clean_tip.startswith("---"):
+            text_area.insert("end", f"\n{clean_tip.replace('---', '').strip()}\n")
+        else:
+            text_area.insert("end", f"・{clean_tip}\n")
+    text_area.insert("end", f"\n入力内容\n")
+    text_area.insert("end", f"月収: {monthly_income}万円\n")
+    text_area.insert("end", f"週の副業時間: {time_hours}時間\n")
+    text_area.insert("end", f"スキルレベル: {skill_level}/5\n")
+    text_area.insert("end", f"リスク許容度: {risk_tolerance}/5\n")
+    text_area.insert("end", f"職場の副業許可: {'あり' if workplace_allows else 'なし'}\n")
+    text_area.insert("end", f"家族の支持: {'あり' if family_support else 'なし'}\n")
+    text_area.insert("end", f"現職の安定性: {job_security}/5\n")
+    text_area.configure(state="disabled")
+
+    close_button = ttk.Button(card, text="閉じる", command=result_window.destroy)
+    close_button.pack(pady=(14, 0))
+    close_button.configure(style="Accent.TButton")
+    result_window.mainloop()
+
+
+def ask_questions_gui():
+    """別画面の入力フォームで質問に回答する"""
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        return None
+
+    root.title("副業診断")
+    root.geometry("520x540")
+    root.resizable(False, False)
+    root.configure(bg="#f4efe9")
+
+    style = ttk.Style(root)
+    try:
+        style.theme_use("clam")
+    except tk.TclError:
+        pass
+
+    style.configure("Card.TFrame", background="#ffffff")
+    style.configure("Main.TFrame", background="#f4efe9")
+    style.configure("Title.TLabel", background="#f4efe9", foreground="#2f2a24", font=("Yu Gothic UI", 20, "bold"))
+    style.configure("Subtitle.TLabel", background="#f4efe9", foreground="#7b756f", font=("Yu Gothic UI", 10))
+    style.configure("Field.TLabel", background="#ffffff", foreground="#544d46", font=("Yu Gothic UI", 10))
+    style.configure("Accent.TButton", foreground="#ffffff", background="#8a6d3b", font=("Yu Gothic UI", 10, "bold"))
+    style.configure("Secondary.TButton", foreground="#5f574f", background="#efe7dc", font=("Yu Gothic UI", 10))
+    style.map("Accent.TButton", background=[("active", "#75562d"), ("!disabled", "#8a6d3b")])
+    style.map("Secondary.TButton", background=[("active", "#e4d8ca"), ("!disabled", "#efe7dc")])
+    style.configure("TEntry", padding=7, fieldbackground="#fcfbf8")
+    style.configure("TCombobox", padding=7, fieldbackground="#fcfbf8")
+
+    monthly_income_var = tk.StringVar(value="40.0")
+    time_hours_var = tk.StringVar(value="5.0")
+    skill_level_var = tk.StringVar(value="2")
+    risk_tolerance_var = tk.StringVar(value="2")
+    workplace_var = tk.StringVar(value="はい")
+    family_var = tk.StringVar(value="はい")
+    job_security_var = tk.StringVar(value="3")
+
+    result = {}
+
+    def validate_and_submit():
+        nonlocal result
+        try:
+            monthly_income = float(monthly_income_var.get())
+            time_hours = float(time_hours_var.get())
+            skill_level = int(skill_level_var.get())
+            risk_tolerance = int(risk_tolerance_var.get())
+            job_security = int(job_security_var.get())
+        except ValueError:
+            messagebox.showerror("入力エラー", "数値は半角で入力してください。")
+            return
+
+        if not 1 <= skill_level <= 5:
+            messagebox.showerror("入力エラー", "スキルレベルは1〜5で入力してください。")
+            return
+        if not 1 <= risk_tolerance <= 5:
+            messagebox.showerror("入力エラー", "リスク許容度は1〜5で入力してください。")
+            return
+        if not 1 <= job_security <= 5:
+            messagebox.showerror("入力エラー", "現職の安定性は1〜5で入力してください。")
+            return
+
+        workplace_allows = workplace_var.get() == "はい"
+        family_support = family_var.get() == "はい"
+        result = {
+            "monthly_income": monthly_income,
+            "time_hours": time_hours,
+            "skill_level": skill_level,
+            "risk_tolerance": risk_tolerance,
+            "workplace_allows": workplace_allows,
+            "family_support": family_support,
+            "job_security": job_security,
+        }
+        root.quit()
+
+    def cancel():
+        if root.winfo_exists():
+            root.destroy()
+
+    root.protocol("WM_DELETE_WINDOW", cancel)
+
+    outer = ttk.Frame(root, style="Main.TFrame", padding=20)
+    outer.pack(fill="both", expand=True)
+
+    card = ttk.Frame(outer, style="Card.TFrame", padding=20)
+    card.pack(fill="both", expand=True)
+
+    ttk.Label(card, text="副業診断", style="Title.TLabel").pack(anchor="center", pady=(0, 4))
+    ttk.Label(card, text="あなたの状況を入力して、適性をチェックします。", style="Subtitle.TLabel").pack(anchor="center", pady=(0, 14))
+
+    fields_frame = ttk.Frame(card, style="Card.TFrame")
+    fields_frame.pack(fill="both", expand=True)
+
+    fields = [
+        ("月収（万円）", monthly_income_var, "entry"),
+        ("週に副業に使える時間（時間）", time_hours_var, "entry"),
+        ("スキルレベル（1=初心者, 5=エキスパート）", skill_level_var, "scale"),
+        ("リスク許容度（1=回避的, 5=積極的）", risk_tolerance_var, "scale"),
+        ("職場は副業を認めていますか？", workplace_var, "combo"),
+        ("家族の理解と支持はありますか？", family_var, "combo"),
+        ("現職の安定性（1=不安定, 5=非常に安定）", job_security_var, "scale"),
+    ]
+
+    for idx, (label_text, variable, widget_type) in enumerate(fields):
+        ttk.Label(fields_frame, text=label_text, style="Field.TLabel").grid(row=idx, column=0, sticky="w", pady=4, padx=(0, 10))
+        if widget_type == "combo":
+            combo = ttk.Combobox(fields_frame, textvariable=variable, values=["はい", "いいえ"], state="readonly", width=22)
+            combo.grid(row=idx, column=1, sticky="ew", pady=4)
+        elif widget_type == "scale":
+            combo = ttk.Combobox(fields_frame, textvariable=variable, values=["1", "2", "3", "4", "5"], state="readonly", width=22)
+            combo.grid(row=idx, column=1, sticky="ew", pady=4)
+        else:
+            entry = ttk.Entry(fields_frame, textvariable=variable, width=24)
+            entry.grid(row=idx, column=1, sticky="ew", pady=4)
+
+    fields_frame.columnconfigure(1, weight=1)
+
+    button_frame = ttk.Frame(card, style="Card.TFrame")
+    button_frame.pack(fill="x", pady=(14, 0))
+    ttk.Button(button_frame, text="診断する", style="Accent.TButton", command=validate_and_submit).pack(side="left", padx=(0, 8))
+    ttk.Button(button_frame, text="キャンセル", style="Secondary.TButton", command=cancel).pack(side="left")
+
+    root.mainloop()
+    root.destroy()
+    return result or None
+
+
 def main():
     print("=== 副業診断アプリ ===")
     print("あなたの副業適性を診断します。\n")
-    
-    monthly_income = ask_num("月収（万円）: ", float, default=40.0)
-    time_hours = ask_num("週に副業に使える時間（時間）: ", float, default=5.0)
-    skill_level = ask_num("現在のスキルレベル（1=初心者, 5=エキスパート）: ", int, default=2)
-    risk_tolerance = ask_num("リスク許容度（1=回避的, 5=積極的）: ", int, default=2)
-    workplace_allows = ask_yesno("職場は副業を認めていますか？")
-    family_support = ask_yesno("家族の理解と支持はありますか？")
-    job_security = ask_num("現職の安定性（1=不安定, 5=非常に安定）: ", int, default=3)
+
+    answers = ask_questions_gui()
+    if answers is None:
+        print("診断をキャンセルしました。")
+        return
+
+    monthly_income = answers["monthly_income"]
+    time_hours = answers["time_hours"]
+    skill_level = answers["skill_level"]
+    risk_tolerance = answers["risk_tolerance"]
+    workplace_allows = answers["workplace_allows"]
+    family_support = answers["family_support"]
+    job_security = answers["job_security"]
     
     score = score_sidegig(monthly_income, time_hours, skill_level, risk_tolerance,
                           workplace_allows, family_support, job_security)
     category, tips = get_sidegig_recommendations(score, risk_tolerance, skill_level, time_hours)
+    note_text = build_note_text(score, category, tips, monthly_income, time_hours,
+                                skill_level, risk_tolerance, workplace_allows,
+                                family_support, job_security)
     
     print("\n" + "="*50)
     print(f"診断日時: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -154,27 +381,20 @@ def main():
     print("\nあなたへのアドバイス:")
     for tip in tips:
         print(tip)
+
+    show_result_window(score, category, tips, monthly_income, time_hours, skill_level,
+                       risk_tolerance, workplace_allows, family_support, job_security)
+
+    print("\n" + "="*50)
+    print("Note/SNSに貼り付ける本文")
+    print("="*50)
+    print(note_text)
+    print("="*50)
     
     if ask_yesno("\n診断結果をファイルに保存しますか？"):
         fname = f"sidegig_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
         with open(fname, "w", encoding="utf-8") as f:
-            f.write("副業診断レポート\n")
-            f.write("="*50 + "\n")
-            f.write(f"診断日時: {datetime.now().isoformat()}\n")
-            f.write(f"\n入力内容:\n")
-            f.write(f"  月収: {monthly_income}万円\n")
-            f.write(f"  週の副業時間: {time_hours}時間\n")
-            f.write(f"  スキルレベル: {skill_level}/5\n")
-            f.write(f"  リスク許容度: {risk_tolerance}/5\n")
-            f.write(f"  職場の副業許可: {'あり' if workplace_allows else 'なし'}\n")
-            f.write(f"  家族の支持: {'あり' if family_support else 'なし'}\n")
-            f.write(f"  現職の安定性: {job_security}/5\n")
-            f.write(f"\n診断結果:\n")
-            f.write(f"  適性スコア: {score}\n")
-            f.write(f"  総合判定: {category}\n")
-            f.write(f"\nアドバイス:\n")
-            for tip in tips:
-                f.write(tip + "\n")
+            f.write(note_text + "\n")
         print(f"✓ 保存しました: {fname}")
 
 if __name__ == '__main__':
