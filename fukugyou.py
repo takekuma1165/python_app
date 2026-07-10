@@ -273,6 +273,12 @@ def ask_questions_gui():
             messagebox.showerror("入力エラー", "数値は半角で入力してください。")
             return
 
+        if monthly_income <= 0:
+            messagebox.showerror("入力エラー", "月収は0より大きい値を入力してください。")
+            return
+        if time_hours <= 0:
+            messagebox.showerror("入力エラー", "週に副業に使える時間は0より大きい値を入力してください。")
+            return
         if not 1 <= skill_level <= 5:
             messagebox.showerror("入力エラー", "スキルレベルは1〜5で入力してください。")
             return
