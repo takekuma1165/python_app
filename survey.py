@@ -25,7 +25,7 @@ def get_or_create_sheet():
     if sheet.max_row == 0 or sheet.cell(row=1, column=1).value is None:
         sheet.append(HEADERS)
     elif list(sheet.iter_rows(min_row=1, max_row=1, values_only=True)) != [tuple(HEADERS)]:
-        sheet.insert_rows(1)
+        #sheet.insert_rows(1)
         sheet.append(HEADERS)
 
     return workbook, sheet
@@ -47,9 +47,23 @@ def export_workbook_to_bytes() -> bytes:
 
 
 def save_answer(data: dict[str, str]) -> None:
+
+    # 名前が空なら保存しない
+    if not data["名前"].strip():
+        return
+
     workbook, sheet = get_or_create_sheet()
-    sheet.append([data["名前"], data["年齢"], data["性別"], data["症状"], data["薬"]])
+
+    sheet.append([
+        data["名前"],
+        data["年齢"],
+        data["性別"],
+        data["症状"],
+        data["薬"],
+    ])
+
     workbook.save(FILE_PATH)
+
     export_sheet_to_csv(sheet)
 
 
@@ -58,14 +72,23 @@ def load_answers() -> list[list[str]]:
         return []
 
     workbook = load_workbook(FILE_PATH)
+
     if "アンケート結果" not in workbook.sheetnames:
         return []
 
     sheet = workbook["アンケート結果"]
-    rows = list(sheet.iter_rows(values_only=True))
-    if not rows:
-        return []
-    return rows[1:]
+
+    answers = []
+
+    for row in sheet.iter_rows(min_row=2, values_only=True):
+
+        # 全て空ならスキップ
+        if all(v is None or str(v).strip() == "" for v in row):
+            continue
+
+        answers.append(list(row))
+
+    return answers
 
 
 def delete_answer(row_index: int) -> None:
