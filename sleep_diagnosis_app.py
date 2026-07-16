@@ -1,4 +1,12 @@
 import streamlit as st
+import pandas as pd
+import plotly.graph_objects as go
+
+from datetime import date
+from pathlib import Path
+
+# 診断結果を保存するCSVファイル
+DATA_FILE = Path(__file__).with_name("sleep_results.csv")
 
 # ---------------------------------
 # 基本設定
@@ -352,10 +360,177 @@ def get_sleep_improvement_advice(answers: dict) -> list[str]:
 
     return advice[:4]
 
+def save_sleep_result(
+    name: str,
+    age: int,
+    answer_date,
+    total_score: int,
+    severity_grade: str,
+    severity_title: str,
+    sleep_type_title: str,
+    warning_count: int,
+) -> None:
+    """今回の診断結果をCSVへ保存する。"""
+
+    new_result = pd.DataFrame(
+        [
+            {
+                "氏名": name.strip(),
+                "年齢": int(age),
+                "回答日": answer_date.isoformat(),
+                "睡眠スコア": total_score,
+                "評価": severity_grade,
+                "睡眠状態": severity_title,
+                "睡眠タイプ": sleep_type_title,
+                "注意項目数": warning_count,
+            }
+        ]
+    )
+
+    if DATA_FILE.exists():
+        saved_results = pd.read_csv(
+            DATA_FILE,
+            encoding="utf-8-sig",
+        )
+
+        saved_results = pd.concat(
+            [saved_results, new_result],
+            ignore_index=True,
+        )
+    else:
+        saved_results = new_result
+
+    saved_results.to_csv(
+        DATA_FILE,
+        index=False,
+        encoding="utf-8-sig",
+    )
+
+
+def load_person_history(name: str) -> pd.DataFrame:
+    """同じ氏名で保存された過去の結果を読み込む。"""
+
+    if not DATA_FILE.exists():
+        return pd.DataFrame()
+
+    saved_results = pd.read_csv(
+        DATA_FILE,
+        encoding="utf-8-sig",
+    )
+
+    person_history = saved_results[
+        saved_results["氏名"].astype(str).str.strip()
+        == name.strip()
+    ].copy()
+
+    if person_history.empty:
+        return person_history
+
+    person_history["回答日"] = pd.to_datetime(
+        person_history["回答日"],
+        errors="coerce",
+    )
+
+    person_history = person_history.dropna(
+        subset=["回答日"]
+    )
+
+    return person_history.sort_values("回答日")
+
+def create_sleep_radar_chart(category_scores: dict):
+    """睡眠の整い度をレーダーチャート用に変換する。"""
+
+    category_max_scores = {
+        "生活リズム": 16,
+        "寝つき": 12,
+        "途中覚醒": 24,
+        "休養感": 16,
+        "心配事": 4,
+    }
+
+    categories = list(category_max_scores.keys())
+
+    # もとの category_scores は「高いほど悩みが多い」
+    # ここでは 0～100 に換算したあと、100 から引いて
+    # 「高いほど良い」に変換する
+    good_percentages = []
+
+    for category in categories:
+        bad_percent = round(
+            category_scores[category]
+            / category_max_scores[category]
+            * 100
+        )
+        good_percent = 100 - bad_percent
+        good_percentages.append(good_percent)
+
+    # 最後に最初の項目をもう一度入れて、線を閉じる
+    chart_categories = categories + [categories[0]]
+    chart_values = good_percentages + [good_percentages[0]]
+
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Scatterpolar(
+            r=chart_values,
+            theta=chart_categories,
+            fill="toself",
+            mode="lines+markers",
+            name="睡眠の整い度",
+            hovertemplate="%{theta}：%{r}点<extra></extra>",
+        )
+    )
+
+    fig.update_layout(
+        polar={
+            "radialaxis": {
+                "visible": True,
+                "range": [0, 100],
+                "tickvals": [0, 20, 40, 60, 80, 100],
+            }
+        },
+        showlegend=False,
+        height=480,
+        margin={
+            "l": 60,
+            "r": 60,
+            "t": 40,
+            "b": 40,
+        },
+    )
+
+    return fig, categories, good_percentages
+
 # ---------------------------------
 # 入力フォーム
 # ---------------------------------
 with st.form("sleep_check_form"):
+    st.subheader("回答者情報")
+
+    name = st.text_input(
+        "氏名",
+        placeholder="例：山田 花子",
+    )
+
+    age = st.number_input(
+        "年齢",
+        min_value=1,
+        max_value=120,
+        value=60,
+        step=1,
+    )
+
+    answer_date = st.date_input(
+        "アンケート回答日",
+        value=date.today(),
+    )
+
+    st.caption(
+        "診断結果は、このアプリと同じフォルダーに保存されます。"
+    )
+
+    st.divider()
+
     st.subheader("1．睡眠状態について")
     st.caption("すべての項目に回答してください。")
 
@@ -422,7 +597,7 @@ with st.form("sleep_check_form"):
     )
 
     submitted = st.form_submit_button(
-        "診断結果を見る",
+        "診断結果を表示して保存",
         type="primary",
         use_container_width=True,
     )
@@ -431,8 +606,19 @@ with st.form("sleep_check_form"):
 # 結果表示
 # ---------------------------------
 if submitted:
-    raw_score = sum(score_options[answer] for answer in answers.values())
-    total_score = round((72 - raw_score) / 72 * 100)
+    if not name.strip():
+        st.error("氏名を入力してください。")
+        st.stop()
+
+    raw_score = sum(
+        score_options[answer]
+        for answer in answers.values()
+    )
+
+    # 100点に近いほど良い睡眠状態
+    total_score = round(
+        (72 - raw_score) / 72 * 100
+    )
 
     category_scores = {
         "生活リズム": 0,
@@ -455,6 +641,21 @@ if submitted:
         if warning_answers[question["id"]] == "はい"
     ]
 
+    warning_count = len(positive_warnings)
+
+    save_sleep_result(
+        name=name,
+        age=age,
+        answer_date=answer_date,
+        total_score=total_score,
+        severity_grade=severity_grade,
+        severity_title=severity_title,
+        sleep_type_title=sleep_type_title,
+        warning_count=warning_count,
+    )
+
+    st.success("今回の診断結果を保存しました。")
+
     st.divider()
     st.header("あなたの診断結果")
 
@@ -475,9 +676,40 @@ if submitted:
     st.subheader(f"主な睡眠タイプ：{sleep_type_title}")
     st.write(sleep_type_message)
 
-    with st.expander("項目別の点数を見る"):
-        for category, score in category_scores.items():
-            st.write(f"**{category}：{score}点**")
+    with st.expander(
+        "睡眠の悩み別の結果を見る",
+        expanded=True,
+    ):
+        st.caption(
+            "総合点は高いほど良い状態です。"
+            "このレーダーチャートも、外側に広がるほど"
+            "その分野の状態が良いことを示します。"
+        )
+
+        st.caption(
+            "点数が低い項目は、今後見直していきたいポイントです。"
+        )
+
+        radar_chart, radar_categories, good_percentages = (
+            create_sleep_radar_chart(category_scores)
+        )
+
+        st.plotly_chart(
+            radar_chart,
+            use_container_width=True,
+            key="sleep_radar_chart",
+        )
+
+        st.write("#### 睡眠の整い度")
+
+        for category, percentage in zip(
+            radar_categories,
+            good_percentages,
+        ):
+            st.write(
+                f"**{category}：{percentage}点**"
+            )
+
     # 注意項目
     if positive_warnings:
         st.warning(
@@ -489,7 +721,7 @@ if submitted:
 
         if warning_answers[22] == "はい":
             st.error(
-                "運転中や仕事中に眠りそうになる場合は、事故につながるおそれがあります。"
+                "運転中や仕事中に眠りそうになる場合は、事故につながる可能性があります。"
                 "眠気がある状態での運転や危険な作業は避け、早めに専門家へ相談してください。"
             )
     else:
@@ -538,3 +770,97 @@ if submitted:
         "強い日中の眠気、呼吸停止、大きないびき、長く続く不眠、"
         "生活への大きな支障がある場合は、医療機関へご相談ください。"
     )
+
+    st.divider()
+    st.header("過去の結果との比較")
+
+    history = load_person_history(name)
+
+    if history.empty:
+        st.info("過去の診断結果はありません。")
+
+    else:
+        st.write(
+            f"{name}さんの診断結果を表示しています。"
+        )
+
+        if len(history) >= 2:
+            latest_score = int(
+                history.iloc[-1]["睡眠スコア"]
+            )
+
+            previous_score = int(
+                history.iloc[-2]["睡眠スコア"]
+            )
+
+            score_difference = (
+                latest_score - previous_score
+            )
+
+            if score_difference > 0:
+                st.success(
+                    f"前回より{score_difference}点上がりました。"
+                )
+
+            elif score_difference < 0:
+                st.warning(
+                    f"前回より{abs(score_difference)}点下がりました。"
+                )
+
+            else:
+                st.info(
+                    "前回と同じ点数です。"
+                )
+
+        if len(history) == 1:
+            st.info(
+                "今回が最初の記録です。"
+                "次回から結果を比較できます。"
+            )
+
+        chart_data = history[
+            ["回答日", "睡眠スコア"]
+        ].copy()
+
+        chart_data = chart_data.set_index(
+            "回答日"
+        )
+
+        st.subheader("睡眠スコアの変化")
+        st.line_chart(chart_data)
+
+        display_history = history[
+            [
+                "回答日",
+                "年齢",
+                "睡眠スコア",
+                "評価",
+                "睡眠状態",
+                "睡眠タイプ",
+                "注意項目数",
+            ]
+        ].copy()
+
+        display_history["回答日"] = (
+            display_history["回答日"]
+            .dt.strftime("%Y年%m月%d日")
+        )
+
+        st.subheader("これまでの記録")
+
+        st.dataframe(
+            display_history,
+            hide_index=True,
+            use_container_width=True,
+        )
+
+        csv_data = display_history.to_csv(
+            index=False
+        ).encode("utf-8-sig")
+
+        st.download_button(
+            label="自分の記録をCSVで保存",
+            data=csv_data,
+            file_name=f"{name}_睡眠診断記録.csv",
+            mime="text/csv",
+        )
