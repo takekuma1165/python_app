@@ -135,7 +135,7 @@ warning_questions = [
     },
     {
         "id": 20,
-        "text": "寝ている間に呼吸が止まっていると言われたことがありますか？",
+        "text": "寝ている間に、呼吸が止まっていると指摘されたことがありますか？",
     },
     {
         "id": 21,
@@ -161,15 +161,15 @@ warning_questions = [
 def get_severity(total_score: int) -> tuple[str, str, str]:
     """100点換算した点数から、A～Dの睡眠評価を判定する。"""
 
-    if total_score <= 19:
+    if total_score >= 80:
         return (
             "A",
             "よく眠れている状態",
             "現在の睡眠は、おおむね良好な状態です。"
-            "今の生活リズムを大切にしながら、疲れを感じた日は早めに休みましょう。",
+            "今の生活リズムを大切にしながら、良い習慣を続けていきましょう。",
         )
 
-    if total_score <= 39:
+    if total_score >= 60:
         return (
             "B",
             "睡眠習慣に少し注意が必要",
@@ -178,13 +178,13 @@ def get_severity(total_score: int) -> tuple[str, str, str]:
             "できることを一つから始めてみましょう。",
         )
 
-    if total_score <= 60:
+    if total_score >= 40:
         return (
             "C",
             "睡眠の見直しが必要",
             "寝つきや夜中の目覚め、日中の眠気など、"
             "いくつかの睡眠の悩みが重なっている可能性があります。"
-            "点数が高かった項目から、生活習慣を一つずつ見直してみましょう。",
+            "点数が低かった項目を意識して、生活習慣を少しずつ見直してみましょう。",
         )
 
     return (
@@ -229,7 +229,7 @@ def get_sleep_type(category_scores: dict[str, int]) -> tuple[str, str]:
             "まずは毎朝の起床時間を、できる範囲でそろえてみましょう。",
         ),
         "休養感": (
-            "眠っても疲れが取れないタイプ",
+            "眠ってもすっきりしないタイプ",
             "睡眠時間だけでなく、睡眠の質が低下している可能性があります。"
             "日中の強い眠気が続く場合は、専門家への相談も大切です。",
         ),
@@ -432,7 +432,7 @@ with st.form("sleep_check_form"):
 # ---------------------------------
 if submitted:
     raw_score = sum(score_options[answer] for answer in answers.values())
-    total_score = round(raw_score / 72 * 100)
+    total_score = round((72 - raw_score) / 72 * 100)
 
     category_scores = {
         "生活リズム": 0,
@@ -538,83 +538,3 @@ if submitted:
         "強い日中の眠気、呼吸停止、大きないびき、長く続く不眠、"
         "生活への大きな支障がある場合は、医療機関へご相談ください。"
     )
-def get_sleep_improvement_advice(answers: dict) -> list[str]:
-    """回答内容に合わせて、眠りを整える提案を作る。"""
-
-    advice = []
-
-    # 睡眠時間・生活リズム
-    if (
-        score_options[answers[1]] >= 2
-        or score_options[answers[2]] >= 2
-    ):
-        advice.append(
-            "毎朝の起きる時間を、休日も含めてできる範囲でそろえてみましょう。"
-            "朝はカーテンを開けて明るい光を浴びると、生活リズムを整えやすくなります。"
-        )
-
-    # 夕方以降のうたた寝
-    if score_options[answers[3]] >= 2:
-        advice.append(
-            "夕方以降の長いうたた寝は、夜の寝つきを妨げることがあります。"
-            "昼寝をする場合は、遅い時間を避けて短めにしてみましょう。"
-        )
-
-    # 寝つき
-    if score_options[answers[4]] >= 2:
-        advice.append(
-            "寝る前に、深呼吸や軽いストレッチなど、"
-            "心と身体を落ち着かせる時間を作ってみましょう。"
-        )
-
-    # スマートフォン
-    if score_options[answers[11]] >= 2:
-        advice.append(
-            "寝る前はスマートフォンやパソコンを見る時間を減らし、"
-            "照明を少し暗くして過ごしてみましょう。"
-        )
-
-    # カフェイン
-    if score_options[answers[12]] >= 2:
-        advice.append(
-            "夕方以降は、コーヒー、緑茶、紅茶、エナジードリンクなどを控え、"
-            "カフェインを含まない飲み物へ替えてみましょう。"
-        )
-
-    # 寝酒
-    if score_options[answers[13]] >= 1:
-        advice.append(
-            "お酒は一時的に寝つきをよくしても、夜中に目が覚めやすくなることがあります。"
-            "眠るためのお酒は控えてみましょう。"
-        )
-
-    # 夜食
-    if score_options[answers[14]] >= 2:
-        advice.append(
-            "寝る直前の食事や夜食は避け、"
-            "夕食から就寝まで少し時間を空けてみましょう。"
-        )
-
-    # 寝室環境
-    if score_options[answers[15]] >= 2:
-        advice.append(
-            "寝室の明るさ、音、室温、寝具を確認し、"
-            "暗く静かで心地よい環境を作ってみましょう。"
-        )
-
-    # 心配事
-    if score_options[answers[16]] >= 2:
-        advice.append(
-            "心配事や明日の予定は、寝る前に紙へ書き出してみましょう。"
-            "頭の中だけで考え続けないことが、気持ちの切り替えにつながります。"
-        )
-
-    # 該当項目が少ない場合
-    if not advice:
-        advice.append(
-            "現在の生活リズムを大切にしながら、"
-            "朝の光、適度な運動、規則正しい食事を続けていきましょう。"
-        )
-
-    # 提案が多すぎないように、優先度の高い4件まで表示
-    return advice[:4]
