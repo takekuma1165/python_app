@@ -45,121 +45,107 @@ yes_no_options = ["いいえ", "はい"]
 # ---------------------------------
 questions = [
     {
-        "id": 1,
-        "category": "生活リズム",
-        "text": "必要だと感じる時間より、睡眠時間が短くなっていますか？",
-    },
-    {
-        "id": 2,
+        "id": 5,
         "category": "生活リズム",
         "text": "寝る時間や起きる時間が、日によって大きく変わりますか？",
     },
     {
-        "id": 3,
+        "id": 6,
+        "category": "生活リズム",
+        "text": "必要だと感じる睡眠時間より、実際の睡眠時間が短いですか？",
+    },
+    {
+        "id": 7,
         "category": "生活リズム",
         "text": "夕方以降に、30分以上うたた寝をすることがありますか？",
     },
     {
-        "id": 4,
-        "category": "寝つき",
-        "text": "布団に入ってから眠るまで、30分以上かかりますか？",
-    },
-    {
-        "id": 5,
-        "category": "途中覚醒",
-        "text": "夜中に何度も目が覚めますか？",
-    },
-    {
-        "id": 6,
-        "category": "途中覚醒",
-        "text": "予定していた時間より早く目が覚め、その後眠れないことがありますか？",
-    },
-    {
-        "id": 7,
-        "category": "休養感",
-        "text": "朝起きたとき、『よく眠れた』という満足感がありませんか？",
-    },
-    {
         "id": 8,
-        "category": "休養感",
-        "text": "十分寝たつもりでも、疲れが残っていますか？",
+        "category": "寝つき",
+        "text": "布団に入ってから眠るまで、30分以上かかることがありますか？",
     },
     {
         "id": 9,
-        "category": "休養感",
-        "text": "日中、仕事や家事に支障が出るほど眠くなることがありますか？",
+        "category": "寝つき",
+        "text": "寝る直前までスマートフォンやパソコンを見ていますか？",
     },
     {
         "id": 10,
-        "category": "休養感",
-        "text": "睡眠不足によって、集中力や意欲が低下していると感じますか？",
+        "category": "心配事",
+        "text": "寝る前に考え事が止まらなくなることがありますか？",
     },
     {
         "id": 11,
-        "category": "寝つき",
-        "text": "寝る直前まで、スマートフォンやパソコンを見ていますか？",
+        "category": "途中覚醒",
+        "text": "夜中に何度も目が覚めることがありますか？",
     },
     {
         "id": 12,
-        "category": "寝つき",
-        "text": "夕方以降に、コーヒー・緑茶・エナジードリンクなどを飲みますか？",
+        "category": "途中覚醒",
+        "text": "トイレに行くために、夜中に目が覚めることがありますか？",
     },
     {
         "id": 13,
         "category": "途中覚醒",
-        "text": "眠るために、お酒を飲むことがありますか？",
+        "text": "寝室の暑さ、寒さ、明るさ、音が気になることがありますか？",
     },
     {
-        "id": 14,
-        "category": "生活リズム",
-        "text": "寝る直前に食事や夜食を取ることがありますか？",
-    },
+    "id": 14,
+    "category": "生活リズム",
+    "text": "寝る前3時間以内に、お酒を飲むことがありますか？",
+},
     {
         "id": 15,
-        "category": "途中覚醒",
-        "text": "寝室の明るさ、音、暑さ、寒さが気になりますか？",
-    },
-    {
-        "id": 16,
-        "category": "心配事",
-        "text": "心配事や考え事が頭から離れず、眠れないことがありますか？",
-    },
+    "category": "休養感",
+    "text": "朝起きたとき、『よく眠れた』という満足がないことがありますか？",
+},
+{
+    "id": 16,
+    "category": "休養感",
+    "text": "朝起きたあとも、身体のだるさや疲れが残ることがありますか？",
+},
     {
         "id": 17,
-        "category": "途中覚醒",
-        "text": "夜中にトイレへ行くため、何度も目が覚めますか？",
+        "category": "休養感",
+        "text": "日中、集中力ややる気が続かないことがありますか？",
     },
     {
         "id": 18,
-        "category": "途中覚醒",
-        "text": "身体の痛みやかゆみなどで、睡眠が妨げられますか？",
+        "category": "寝つき",
+        "text": "夕方以降に、コーヒー・緑茶・紅茶・エナジードリンクなどを飲むことがありますか？",
+    },
+    {
+        "id": 19,
+        "category": "生活リズム",
+        "text": "寝る直前に食事や夜食をとることがありますか？",
+    },
+    {
+        "id": 20,
+    "category": "寝つき",
+    "text": "寝る前に、ゆっくり過ごす時間をとれないことがありますか？",
     },
 ]
 
 warning_questions = [
     {
-        "id": 19,
-        "text": "大きないびきを指摘されたことがありますか？",
-    },
-    {
-        "id": 20,
-        "text": "寝ている間に、呼吸が止まっていると指摘されたことがありますか？",
-    },
-    {
         "id": 21,
-        "text": "眠っている時間は確保できているのに、日中に強い眠気がありますか？",
+        "text": "ご家族などから、大きないびきを指摘されたことがありますか？",
     },
     {
         "id": 22,
-        "text": "運転中や仕事中に、眠りそうになったことがありますか？",
+        "text": "寝ている間に、呼吸が止まっていると指摘されたことがありますか？",
     },
     {
         "id": 23,
-        "text": "足がむずむずして、動かさないと落ち着かず眠れないことがありますか？",
+        "text": "十分な睡眠時間をとっているのに、日中に強い眠気がありますか？",
     },
     {
         "id": 24,
-        "text": "睡眠の悩みが週3日以上あり、長く続いていますか？",
+        "text": "運転中や仕事中に、眠気で危険を感じたことがありますか？",
+    },
+    {
+        "id": 25,
+        "text": "睡眠の悩みが週3日以上あり、1か月以上続いていますか？",
     },
 ]
 
@@ -286,70 +272,94 @@ def get_sleep_improvement_advice(answers: dict) -> list[str]:
 
     advice = []
 
-    # 睡眠時間・生活リズム
+    # 生活リズム
     if (
-        score_options[answers[1]] >= 2
-        or score_options[answers[2]] >= 2
+        score_options[answers[5]] >= 2
+        or score_options[answers[6]] >= 2
     ):
         advice.append(
-            "毎朝の起きる時間を、休日も含めてできる範囲でそろえてみましょう。"
-            "朝はカーテンを開けて明るい光を浴びると、生活リズムを整えやすくなります。"
+            "まずは毎朝の起きる時間を、できる範囲でそろえてみましょう。"
+            "朝にカーテンを開けて光を浴びると、生活リズムを整えやすくなります。"
         )
 
     # 夕方以降のうたた寝
-    if score_options[answers[3]] >= 2:
+    if score_options[answers[7]] >= 2:
         advice.append(
             "夕方以降の長いうたた寝は、夜の寝つきを妨げることがあります。"
             "昼寝をする場合は、遅い時間を避けて短めにしてみましょう。"
         )
 
     # 寝つき
-    if score_options[answers[4]] >= 2:
+    if (
+        score_options[answers[8]] >= 2
+        or score_options[answers[20]] >= 2
+    ):
         advice.append(
-            "寝る前に深呼吸や軽いストレッチを行い、"
-            "心と身体を落ち着かせる時間を作ってみましょう。"
+            "寝る前に、深呼吸や軽いストレッチなど、"
+            "気持ちを落ち着ける時間を作ってみましょう。"
         )
 
     # スマートフォン
-    if score_options[answers[11]] >= 2:
+    if score_options[answers[9]] >= 2:
         advice.append(
-            "寝る前はスマートフォンやパソコンを見る時間を減らし、"
-            "照明を少し暗くして過ごしてみましょう。"
+            "寝る前はスマートフォンやパソコンを見る時間を少し減らし、"
+            "照明を暗めにして過ごしてみましょう。"
         )
 
-    # カフェイン
-    if score_options[answers[12]] >= 2:
+    # 考え事
+    if score_options[answers[10]] >= 2:
         advice.append(
-            "夕方以降はコーヒー、緑茶、紅茶などを控え、"
-            "カフェインを含まない飲み物へ替えてみましょう。"
+            "寝る前に考え事が止まらないときは、明日の予定や不安を紙に書き出してみましょう。"
+            "頭の中だけで考え続けないことが、気持ちの切り替えにつながります。"
         )
 
-    # 寝酒
-    if score_options[answers[13]] >= 1:
+    # 夜中の目覚め
+    if (
+        score_options[answers[11]] >= 2
+        or score_options[answers[12]] >= 2
+    ):
         advice.append(
-            "眠るためのお酒は、夜中に目が覚める原因になることがあります。"
-            "寝酒を控えることから始めてみましょう。"
-        )
-
-    # 夜食
-    if score_options[answers[14]] >= 2:
-        advice.append(
-            "寝る直前の食事や夜食を避け、"
-            "夕食から就寝まで少し時間を空けてみましょう。"
+            "夜中に目が覚めやすい場合は、寝室環境や寝る前の水分量、"
+            "夜間のトイレの回数などを一度見直してみましょう。"
         )
 
     # 寝室環境
-    if score_options[answers[15]] >= 2:
+    if score_options[answers[13]] >= 2:
         advice.append(
             "寝室の明るさ、音、室温、寝具を確認し、"
             "暗く静かで心地よい環境を作ってみましょう。"
         )
 
-    # 心配事
-    if score_options[answers[16]] >= 2:
+    # お酒
+    if score_options[answers[14]] >= 1:
         advice.append(
-            "心配事や明日の予定は、寝る前に紙へ書き出してみましょう。"
-            "頭の中だけで考え続けないことが、気持ちの切り替えにつながります。"
+            "お酒は一時的に眠くなっても、夜中に目が覚める原因になることがあります。"
+            "眠るためのお酒は控えることから始めてみましょう。"
+        )
+
+    # 朝のすっきり感
+    if (
+        score_options[answers[15]] >= 2
+        or score_options[answers[16]] >= 2
+        or score_options[answers[17]] >= 2
+    ):
+        advice.append(
+            "朝すっきりしない場合は、睡眠時間だけでなく、日中の活動量や朝の光、"
+            "寝る前の過ごし方も見直してみましょう。"
+        )
+
+    # カフェイン
+    if score_options[answers[18]] >= 2:
+        advice.append(
+            "夕方以降は、コーヒー・緑茶・紅茶・エナジードリンクを控え、"
+            "カフェインを含まない飲み物に替えてみましょう。"
+        )
+
+    # 夜食
+    if score_options[answers[19]] >= 2:
+        advice.append(
+            "寝る直前の食事や夜食は避け、"
+            "夕食から就寝まで少し時間を空けてみましょう。"
         )
 
     if not advice:
@@ -441,11 +451,11 @@ def create_sleep_radar_chart(category_scores: dict):
     """睡眠の整い度をレーダーチャート用に変換する。"""
 
     category_max_scores = {
-        "生活リズム": 16,
-        "寝つき": 12,
-        "途中覚醒": 24,
-        "休養感": 16,
-        "心配事": 4,
+    "生活リズム": 20,
+    "寝つき": 16,
+    "途中覚醒": 12,
+    "休養感": 12,
+    "心配事": 4,
     }
 
     categories = list(category_max_scores.keys())
@@ -529,6 +539,21 @@ with st.form("sleep_check_form"):
         "診断結果は、このアプリと同じフォルダーに保存されます。"
     )
 
+    st.subheader("今いちばん困っていること")
+
+    main_sleep_problem = st.radio(
+        "Q4．今、睡眠でいちばん困っていることは何ですか？",
+        options=[
+            "なかなか寝つけない",
+            "夜中に何度も目が覚める",
+            "朝早く目が覚めてしまう",
+            "寝ても疲れが取れない",
+            "日中に眠くなる",
+            "特に困っていないが、睡眠を整えたい",
+        ],
+        key="main_sleep_problem",
+    )
+
     st.divider()
 
     st.subheader("1．睡眠状態について")
@@ -545,8 +570,11 @@ with st.form("sleep_check_form"):
         )
 
     st.divider()
-    st.subheader("2．注意して確認したい項目")
-    st.caption("以下の項目は合計点には含まれません。")
+    st.subheader("2．睡眠について気をつけたいサイン")
+    st.caption(
+    "以下は総合点には含まれません。"
+    "「はい」がある場合は、必要に応じて医療機関への相談も検討しましょう。"
+)
 
     warning_answers = {}
 
@@ -617,9 +645,10 @@ if submitted:
 
     # 100点に近いほど良い睡眠状態
     total_score = round(
-        (72 - raw_score) / 72 * 100
+        (64 - raw_score) / 64 * 100
     )
 
+    # カテゴリーごとの点数を入れる箱を作る
     category_scores = {
         "生活リズム": 0,
         "寝つき": 0,
@@ -628,12 +657,20 @@ if submitted:
         "心配事": 0,
     }
 
+    # 各設問の点数をカテゴリーごとに合計する
     for question in questions:
         category = question["category"]
-        category_scores[category] += score_options[answers[question["id"]]]
+        category_scores[category] += score_options[
+            answers[question["id"]]
+        ]
 
-    severity_grade, severity_title, severity_message = get_severity(total_score)
-    sleep_type_title, sleep_type_message = get_sleep_type(category_scores)
+    severity_grade, severity_title, severity_message = get_severity(
+        total_score
+    )
+
+    sleep_type_title, sleep_type_message = get_sleep_type(
+        category_scores
+    )
 
     positive_warnings = [
         question
@@ -675,6 +712,7 @@ if submitted:
 
     st.subheader(f"主な睡眠タイプ：{sleep_type_title}")
     st.write(sleep_type_message)
+    st.write(f"**最も気になっている悩み：{main_sleep_problem}**")
 
     with st.expander(
         "睡眠の悩み別の結果を見る",
@@ -719,7 +757,7 @@ if submitted:
         for question in positive_warnings:
             st.write(f"・Q{question['id']}：{question['text']}")
 
-        if warning_answers[22] == "はい":
+        if warning_answers[24] == "はい":
             st.error(
                 "運転中や仕事中に眠りそうになる場合は、事故につながる可能性があります。"
                 "眠気がある状態での運転や危険な作業は避け、早めに専門家へ相談してください。"
