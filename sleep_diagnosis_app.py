@@ -524,7 +524,7 @@ with st.form("sleep_check_form"):
 
     age = st.number_input(
         "年齢",
-        min_value=1,
+        min_value=0,
         max_value=120,
         value=60,
         step=1,
@@ -533,6 +533,8 @@ with st.form("sleep_check_form"):
     answer_date = st.date_input(
         "アンケート回答日",
         value=date.today(),
+        disabled=True,
+        help="回答日は自動で本日の日付に設定され、変更できません。",
     )
 
     st.caption(
@@ -592,6 +594,7 @@ with st.form("sleep_check_form"):
     aroma_interest = st.radio(
         "Q25．眠る前に香りを取り入れてみたいですか？",
         options=[
+
             "ぜひ取り入れたい",
             "少し興味がある",
             "香りが苦手",
@@ -603,6 +606,7 @@ with st.form("sleep_check_form"):
     aroma_preference = st.radio(
         "Q26．心地よいと感じる香りはどれですか？",
         options=[
+
             "花のような香り",
             "森や木の香り",
             "柑橘系の香り",
@@ -634,9 +638,35 @@ with st.form("sleep_check_form"):
 # 結果表示
 # ---------------------------------
 if submitted:
-    if not name.strip():
-        st.error("氏名を入力してください。")
+    # 氏名の簡易バリデーション
+    # - 入力が文字列であること
+    # - 空白だけでないこと
+    # - 少なくとも1文字以上の文字（数字以外の文字）が含まれていること
+    cleaned_name = name if isinstance(name, str) else ""
+    if not cleaned_name.strip() or not any(
+        ch.isalpha() for ch in cleaned_name.replace(" ", "")
+    ):
+        st.error(
+            "氏名を正しく入力してください（例：山田 花子）。\n"
+            "名前には文字が含まれている必要があります。"
+        )
         st.stop()
+    # 年齢の追加検証（念のため）
+    try:
+        age_val = int(age)
+    except Exception:
+        st.error("年齢は数値で入力してください。")
+        st.stop()
+
+    if not (0 <= age_val <= 120):
+        st.error("年齢は0〜120の範囲で入力してください。")
+        st.stop()
+
+    # 回答日に過去日が選択されている場合はエラー表示
+    if answer_date < date.today():
+        st.error("アンケート回答日に過去日が選択されています。回答日は今日以降の日付を指定してください。")
+        st.stop()
+
 
     raw_score = sum(
         score_options[answer]
@@ -748,7 +778,7 @@ if submitted:
     if positive_warnings:
         st.warning(
             "注意して確認したい項目に「はい」があります。"
-            "点数にかかわらず、症状が続く場合は医療機関への相談を検討してください。"
+            "点 数にかかわらず、症状が続く場合は医療機関への相談を検討してください。"
         )
         for question in positive_warnings:
             st.write(f"・Q{question['id']}：{question['text']}")
@@ -843,7 +873,7 @@ if submitted:
 
             else:
                 st.info(
-                    "前回と同じ点数です。"
+                    "前回と同じ点 数です。"
                 )
 
         if len(history) == 1:
