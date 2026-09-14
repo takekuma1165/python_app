@@ -1,5 +1,8 @@
-import streamlit as st
+import csv
 import html
+import os
+
+import streamlit as st
 
 st.set_page_config(
     page_title="お問い合わせフォーム",
@@ -45,15 +48,6 @@ st.markdown(
         text-align: center;
         font-family: Georgia, "Times New Roman", serif;
         font-weight: 500;
-    }
-
-    .form-card {
-        background: rgba(255,255,255,0.92);
-        border-radius: 14px;
-        padding: 28px 32px 20px 32px;
-        box-shadow: 0 5px 20px rgba(90, 70, 55, 0.08);
-        border: 1px solid #e7ddd4;
-        margin-bottom: 1rem;
     }
 
     div[data-testid="stTextInput"] input,
@@ -167,12 +161,47 @@ def safe(value):
     return html.escape(str(value or ""))
 
 
+def save_contact_csv(data):
+    csv_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "contact_submissions.csv",
+    )
+    fieldnames = [
+        "お名前",
+        "性別",
+        "メールアドレス",
+        "電話番号",
+        "住所",
+        "建物名",
+        "お問い合わせの種類",
+        "タグ",
+        "お問い合わせ内容",
+    ]
+    row = {
+        "お名前": f"{data.get('last_name', '')} {data.get('first_name', '')}".strip(),
+        "性別": data.get("gender", ""),
+        "メールアドレス": data.get("email", ""),
+        "電話番号": data.get("phone", ""),
+        "住所": data.get("address", ""),
+        "建物名": data.get("building", ""),
+        "お問い合わせの種類": data.get("inquiry_type", ""),
+        "タグ": "、".join(data.get("tags", [])),
+        "お問い合わせ内容": data.get("message", ""),
+    }
+
+    file_exists = os.path.exists(csv_path)
+    with open(csv_path, "a", newline="", encoding="utf-8-sig") as file:
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        if not file_exists or os.path.getsize(csv_path) == 0:
+            writer.writeheader()
+        writer.writerow(row)
+
+
 # =========================
 # 1. ログイン / 登録画面
 # =========================
 if st.session_state.page == "login":
     st.markdown("<h1>Login</h1>", unsafe_allow_html=True)
-    st.markdown('<div class="form-card">', unsafe_allow_html=True)
 
     with st.form("login_form"):
         name = st.text_input(
@@ -237,7 +266,6 @@ if st.session_state.page == "login":
 # =========================
 elif st.session_state.page == "contact":
     st.markdown("<h1>Contact</h1>", unsafe_allow_html=True)
-    st.markdown('<div class="form-card">', unsafe_allow_html=True)
 
     data = st.session_state.contact_data
 
@@ -403,7 +431,7 @@ elif st.session_state.page == "confirm":
 
     with left:
         if st.button("送信", use_container_width=True):
-            # ここにメール送信やDB保存処理を追加できます
+            save_contact_csv(d)
             go("complete")
 
     with right:
