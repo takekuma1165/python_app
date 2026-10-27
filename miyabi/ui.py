@@ -1,4 +1,4 @@
-"""Japanese, offline-first Streamlit interface for the first development stage."""
+"""Japanese, offline-first Streamlit interface for article editing and AI-assisted writing."""
 from __future__ import annotations
 
 import sqlite3
@@ -7,8 +7,9 @@ import streamlit as st
 from miyabi.database import ArticleStore, FIELDS, GENRES, STATUSES, empty_article
 from miyabi.export import article_markdown, article_text, download_name
 from miyabi.ai_client import api_key_configured
+from miyabi.ai_ui import AI_PAGE, render_ai
 
-PAGES = ("ホーム", "記事を書く・編集する", "記事一覧", "出力・投稿準備", "このアプリについて")
+PAGES = ("ホーム", "記事を書く・編集する", "記事一覧", "出力・投稿準備", "このアプリについて", AI_PAGE)
 LABELS = {
     "title": "タイトル（必須）", "genre": "ジャンル", "audience": "対象読者",
     "keyword": "メインキーワード", "search_intent": "検索意図・読者の悩み",
@@ -65,6 +66,7 @@ def render_home(store):
     cols[1].metric("作成中", sum(a["status"] not in ("完成", "公開済み") for a in articles))
     cols[2].metric("完成・公開済み", sum(a["status"] in ("完成", "公開済み") for a in articles))
     st.button("＋ 新しい記事を書く", on_click=new_article, type="primary")
+    st.button("AIと記事を企画する", on_click=go, args=(AI_PAGE,))
     st.subheader("最近編集した記事")
     if not articles:
         st.info("まだ記事はありません。「新しい記事を書く」から、仮のタイトルとメモを保存してみましょう。")
@@ -213,12 +215,12 @@ def render_export(store):
 
 def render_about(store):
     st.header("このアプリについて")
-    st.write("みやび AIライティングスタジオ · 第1段階")
+    st.write("みやび AIライティングスタジオ · 第2段階")
     st.write("記事の作成・編集・保存・検索・複製・削除と、Markdown／テキスト出力を利用できます。")
     st.caption(f"データ保存先：{store.path}")
-    st.write("APIキー：" + ("設定あり（値は表示しません）" if api_key_configured() else "未設定。この段階の全機能を利用できます。"))
-    st.info("第1段階では外部AIサービスに文章を送信せず、API料金も発生しません。AI利用時の送信内容確認・費用説明・モデル設定は第2段階で追加します。")
-    st.write("今後の追加予定：テーマ・タイトル・構成・本文のAI生成、文体変換、校正・重複チェック、投稿準備支援、詳細ダッシュボード、設定・バックアップ画面。")
+    st.write("APIキー：" + ("設定あり（値は表示しません）" if api_key_configured() else "未設定。記事の手動編集・保存は利用できます。"))
+    st.info("「AI記事づくり」でテーマ・タイトル・構成・本文の生成を利用できます。APIキー設定と送信内容・料金の確認後にのみOpenAIへ送信します。生成しなければAPI料金は発生しません。")
+    st.write("今後の追加予定：文体変換、校正・重複チェック、投稿準備支援、詳細ダッシュボード、設定・バックアップ画面。")
     st.write("保存済みデータの退避方法：アプリを停止した後、保存先フォルダー内の miyabi.sqlite3 を別の安全な場所へコピーしてください。復元時もアプリを停止し、現在のファイルを退避してから戻します。")
 
 
@@ -253,12 +255,12 @@ def render_app(store: ArticleStore):
                     st.session_state.editor_id = None if k == "new" else int(k)
                     st.session_state.page = PAGES[1]
                 st.button(f"下書きに戻る：{title}", key=f"resume_{key}", on_click=resume)
-        st.caption("第1段階 ｜ 手書きの記事制作と保存")
+        st.caption("第2段階 ｜ 記事制作とAI執筆支援")
     st.title("みやび AIライティングスタジオ")
     st.caption("みやびのnote ｜ 経験と思いを、あなたらしい言葉で。")
     if "flash" in st.session_state:
         st.success(st.session_state.pop("flash"))
-    renderers = dict(zip(PAGES, (render_home, render_editor, render_list, render_export, render_about)))
+    renderers = dict(zip(PAGES, (render_home, render_editor, render_list, render_export, render_about, render_ai)))
     try:
         renderers[page](store)
     except (sqlite3.Error, OSError):
