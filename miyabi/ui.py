@@ -6,11 +6,14 @@ import streamlit as st
 
 from miyabi.database import ArticleStore, FIELDS, GENRES, STATUSES, empty_article
 from miyabi.export import article_markdown, article_text, download_name
-from miyabi.ai_client import api_key_configured
+from miyabi.ai_client import api_key_configured, default_model
+from miyabi.publication_ui import render_publication
+from miyabi.settings_ui import SETTINGS_PAGE, render_settings
+from miyabi.dashboard import summarize, recommend
 from miyabi.ai_ui import AI_PAGE, render_ai
 from miyabi.review_ui import STYLE_PAGE, PROOF_PAGE, DUPLICATE_PAGE, render_style, render_proofreading, render_duplicates
 
-PAGES = ("ホーム", "記事を書く・編集する", "記事一覧", "出力・投稿準備", "このアプリについて", AI_PAGE, STYLE_PAGE, PROOF_PAGE, DUPLICATE_PAGE)
+PAGES = ("ホーム", "記事を書く・編集する", "記事一覧", "出力・投稿準備", "このアプリについて", AI_PAGE, STYLE_PAGE, PROOF_PAGE, DUPLICATE_PAGE, SETTINGS_PAGE)
 LABELS = {
     "title": "タイトル（必須）", "genre": "ジャンル", "audience": "対象読者",
     "keyword": "メインキーワード", "search_intent": "検索意図・読者の悩み",
@@ -62,10 +65,33 @@ def render_home(store):
     st.header("あなたの言葉を、少しずつ記事に。")
     st.write("自分の経験や思いを大切にしながら、企画から公開準備まで整えていきましょう。")
     articles = store.list()
-    cols = st.columns(3)
-    cols[0].metric("保存した記事", len(articles))
-    cols[1].metric("作成中", sum(a["status"] not in ("完成", "公開済み") for a in articles))
-    cols[2].metric("完成・公開済み", sum(a["status"] in ("完成", "公開済み") for a in articles))
+    summary = summarize(articles)
+    cols = st.columns(5)
+    for col, label, name in zip(cols, ("保存した記事", "作成中", "完成", "公開済み", "今月作成"), ("total", "in_progress", "complete", "published", "monthly")):
+        col.metric(label, summary[name])
+    st.subheader("記事作成の進捗")
+    st.caption("段階ごとの目安です。文字数や品質の評価ではありません。")
+    st.progress(summary["progress"], text=f'全体の段階の目安：{summary["progress"]:.0%}')
+    st.bar_chart(summary["statuses"])
+    st.subheader("次に執筆するおすすめテーマ")
+    st.caption("保存記事の少ないジャンルから選ぶ定型の提案です。AI通信や外部検索は行いません。")
+    def save_recommendation(item):
+        try:
+            values = empty_article() | {"title": item["title"], "genre": item["genre"], "search_intent": item["problem"],
+                                       "audience": st.session_state["saved_settings"]["audience"], "notes": item["paid_direction"]}
+            article_id = store.save(values)
+            go(PAGES[1], article_id)
+            st.session_state.flash = "おすすめテーマをアイデアとして保存しました。ご自身の経験を加えて育てていきましょう。"
+        except (ValueError, sqlite3.Error, OSError):
+            st.session_state.dashboard_error = "テーマを保存できませんでした。データベースの状態を確認してください。"
+    if "dashboard_error" in st.session_state:
+        st.error(st.session_state.pop("dashboard_error"))
+    for item in recommend(articles):
+        with st.container(border=True):
+            st.write(item["title"]); st.caption(item["reason"])
+            st.write("読者の悩み：" + item["problem"])
+            st.caption(item["paid_direction"])
+            st.button("このテーマをアイデアとして保存", key=f'recommend_{item["genre"]}', on_click=save_recommendation, args=(item,))
     st.button("＋ 新しい記事を書く", on_click=new_article, type="primary")
     st.button("AIと記事を企画する", on_click=go, args=(AI_PAGE,))
     st.subheader("最近編集した記事")
@@ -88,7 +114,7 @@ def render_editor(store):
         if article_id is not None and saved is None:
             st.warning("この記事は見つかりません。一覧から記事を選び直してください。")
             return
-        drafts[key] = {"values": {f: saved[f] for f in FIELDS} if saved else empty_article(),
+        drafts[key] = {"values": {f: saved[f] for f in FIELDS} if saved else empty_article() | {"audience": st.session_state["saved_settings"]["audience"]},
                        "version": saved["updated_at"] if saved else None, "dirty": False}
     draft = drafts[key]
     st.caption("新しい記事" if article_id is None else f"記事ID：{article_id}")
@@ -197,36 +223,19 @@ def render_list(store):
 
 
 def render_export(store):
-    st.header("出力・投稿準備")
-    st.write("保存済みの記事をファイルにして、noteの編集画面へ手動で貼り付けられます。")
-    articles = store.list()
-    if not articles:
-        st.info("まず記事を作成・保存してください。")
-        return
-    lookup = {a["id"]: a for a in articles}
-    selected = st.selectbox("出力する記事", list(lookup), format_func=lambda i: f'{lookup[i]["title"]}（ID {i}）')
-    a = lookup[selected]
-    key = str(selected)
-    if st.session_state.drafts.get(key, {}).get("dirty"):
-        st.warning("この記事には未保存の編集があります。ここでは保存済みの内容を出力します。編集画面で保存するか、入力中の文章を出力してください。")
-    st.caption("出力対象：タイトル・本文・ハッシュタグ。備考や検索意図は含みません。")
-    export_buttons(a, "saved")
-    st.text_area("コピー用テキスト（Ctrl+A → Ctrl+Cでコピー）", value=article_text(a), height=320, disabled=False, key=f'copy_text_{a["id"]}_{a["updated_at"]}')
-    st.caption("コピー用欄の変更は記事へ保存されません。編集は「記事を書く・編集する」で行ってください。")
-    with st.expander("Markdownプレビュー", expanded=True):
-        st.markdown(article_markdown(a))
-    st.info("noteへの自動投稿は行いません。AIによるハッシュタグ・紹介文・Threads告知文の生成は第4段階で追加予定です。")
+    render_publication(store)
 
 
 def render_about(store):
     st.header("このアプリについて")
-    st.write("みやび AIライティングスタジオ · 第3段階")
+    st.write("みやび AIライティングスタジオ · 第4段階")
     st.write("記事の作成・編集・保存・検索・複製・削除と、Markdown／テキスト出力を利用できます。")
     st.caption(f"データ保存先：{store.path}")
     st.write("APIキー：" + ("設定あり（値は表示しません）" if api_key_configured() else "未設定。記事の手動編集・保存は利用できます。"))
     st.info("「AI記事づくり」でテーマ・タイトル・構成・本文の生成を利用できます。APIキー設定と送信内容・料金の確認後にのみOpenAIへ送信します。生成しなければAPI料金は発生しません。")
-    st.write("文体変換・1件ずつ採用できるAI校正・重複チェックも利用できます。今後の追加予定：投稿準備支援、詳細ダッシュボード、設定・バックアップ画面。")
-    st.write("保存済みデータの退避方法：アプリを停止した後、保存先フォルダー内の miyabi.sqlite3 を別の安全な場所へコピーしてください。復元時もアプリを停止し、現在のファイルを退避してから戻します。")
+    st.write("文体変換・1件ずつ採用できるAI校正・重複チェックも利用できます。投稿準備・Threads告知・詳細ダッシュボード・設定・バックアップを利用できます。")
+    st.write("「設定・バックアップ」で保存済みの記事・投稿準備・設定をまとめて退避・復元できます。")
+    st.write("保存済みデータの手動退避方法：アプリを停止した後、保存先フォルダー内の miyabi.sqlite3 を別の安全な場所へコピーしてください。復元時もアプリを停止し、現在のファイルを退避してから戻します。")
 
 
 def render_app(store: ArticleStore):
@@ -242,6 +251,14 @@ def render_app(store: ArticleStore):
     </style>''', unsafe_allow_html=True)
     if "next_page" in st.session_state:
         go(*st.session_state.pop("next_page"))
+    if st.session_state.get("storage_move_pending"):
+        st.warning("保存先のコピーと設定が完了しています。これ以上編集せず、アプリをCtrl+Cで停止してから再起動してください。")
+        st.code(st.session_state.storage_move_pending, language=None)
+        st.stop()
+    saved_settings, settings_version = store.settings()
+    if settings_version is None:
+        saved_settings["model"] = default_model()
+    st.session_state.saved_settings = saved_settings
     st.session_state.setdefault("drafts", {})
     st.session_state.setdefault("editor_id", None)
     st.session_state.setdefault("page", PAGES[0])
@@ -260,12 +277,12 @@ def render_app(store: ArticleStore):
                     st.session_state.editor_id = None if k == "new" else int(k)
                     st.session_state.page = PAGES[1]
                 st.button(f"下書きに戻る：{title}", key=f"resume_{key}", on_click=resume)
-        st.caption("第3段階 ｜ 執筆・文体・校正・重複確認")
+        st.caption("第4段階 ｜ 執筆・文体・校正・重複確認")
     st.title("みやび AIライティングスタジオ")
     st.caption("みやびのnote ｜ 経験と思いを、あなたらしい言葉で。")
     if "flash" in st.session_state:
         st.success(st.session_state.pop("flash"))
-    renderers = dict(zip(PAGES, (render_home, render_editor, render_list, render_export, render_about, render_ai, render_style, render_proofreading, render_duplicates)))
+    renderers = dict(zip(PAGES, (render_home, render_editor, render_list, render_export, render_about, render_ai, render_style, render_proofreading, render_duplicates, render_settings)))
     try:
         renderers[page](store)
     except (sqlite3.Error, OSError):

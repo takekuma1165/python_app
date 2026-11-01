@@ -4,7 +4,9 @@ from miyabi import ai_client
 
 
 def render_ai_settings():
-    prefs = st.session_state.setdefault("ai_preferences", {"model": ai_client.default_model(), "enabled": False})
+    defaults = st.session_state.get("saved_settings", {})
+    prefs = st.session_state.setdefault("ai_preferences", {"model": defaults.get("model", ai_client.default_model()), "enabled": defaults.get("ai_enabled", False)})
+    prefs["tone"] = defaults.get("tone", "")
     with st.expander("AI利用設定・APIキーの設定方法", expanded=not ai_client.api_key_configured()):
         for name in ("model", "enabled"):
             st.session_state.setdefault(f"ai_pref_{name}", prefs[name])

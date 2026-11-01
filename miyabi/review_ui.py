@@ -23,6 +23,7 @@ def review_space(store, target):
     spaces = st.session_state.setdefault("review_spaces", {})
     if target not in spaces:
         source, version = empty_article(), None
+        source["audience"] = st.session_state.get("saved_settings", {}).get("audience", source["audience"])
         if target in st.session_state.drafts:
             draft = st.session_state.drafts[target]
             source.update(draft["values"])
@@ -64,7 +65,7 @@ def adopt_style(target):
     space = st.session_state.review_spaces[target]
     result = space["results"]["style"]
     try:
-        current = ai_client.prepare_request("style", space["values"], st.session_state["ai_preferences"]["model"])
+        current = ai_client.prepare_request("style", space["values"] | {"tone": st.session_state["ai_preferences"].get("tone", "")}, st.session_state["ai_preferences"]["model"])
     except ai_client.GenerationError:
         current = None
     if current is None or current.fingerprint != result["fingerprint"]:
@@ -147,7 +148,7 @@ def proof_is_fresh(space, model):
     if result is None:
         return False
     try:
-        request = ai_client.prepare_request("proof", space["values"] | {"body": result["source"]}, model)
+        request = ai_client.prepare_request("proof", space["values"] | {"body": result["source"], "tone": st.session_state["ai_preferences"].get("tone", "")}, model)
         return request.fingerprint == result["fingerprint"] and space["values"]["body"] == patched_body(
             result["source"], result["data"]["issues"], result["accepted"])
     except (ReviewError, ai_client.GenerationError):
@@ -216,7 +217,7 @@ def render_review(store, kind):
         style_key = f"review_{target}_style_mode"
         st.session_state.setdefault(style_key, v["style_mode"])
         st.selectbox("みやび文体のモード", STYLE_MODES, key=style_key, on_change=remember, args=("style_mode", style_key))
-    request_values = dict(v)
+    request_values = dict(v) | {"tone": prefs.get("tone", "")}
     if kind == "duplicate":
         request_values["references"] = render_references(space, articles, target)
     request = None

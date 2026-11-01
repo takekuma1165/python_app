@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import sqlite3
+import json
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
@@ -58,10 +59,60 @@ class ArticleStore:
                 )
             """)
 
+
+            conn.execute("""CREATE TABLE IF NOT EXISTS publication_packs (
+                article_id INTEGER PRIMARY KEY REFERENCES articles(id) ON DELETE CASCADE,
+                data_json TEXT NOT NULL, source_updated_at TEXT NOT NULL, updated_at TEXT NOT NULL
+            )""")
+            conn.execute("""CREATE TABLE IF NOT EXISTS app_settings (
+                id INTEGER PRIMARY KEY CHECK(id=1), data_json TEXT NOT NULL, updated_at TEXT NOT NULL
+            )""")
+
+    def settings(self):
+        from miyabi.settings import DEFAULT_SETTINGS
+        with self.connection() as conn:
+            row = conn.execute("SELECT data_json,updated_at FROM app_settings WHERE id=1").fetchone()
+        return (json.loads(row[0]), row[1]) if row else (dict(DEFAULT_SETTINGS), None)
+
+    def save_settings(self, values, expected_version):
+        from miyabi.settings import validate_settings
+        values = validate_settings(values)
+        stamp = now()
+        with self.connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("SELECT updated_at FROM app_settings WHERE id=1").fetchone()
+            if (row[0] if row else None) != expected_version:
+                raise ConflictError("設定が他の画面で変更されました。設定を読み込み直してください。")
+            conn.execute("INSERT OR REPLACE INTO app_settings VALUES (1,?,?)", (json.dumps(values, ensure_ascii=False), stamp))
+        return stamp
+
+    def publication(self, article_id):
+        with self.connection() as conn:
+            row = conn.execute("SELECT * FROM publication_packs WHERE article_id=?", (article_id,)).fetchone()
+        return None if row is None else {"article_id": row["article_id"], "data": json.loads(row["data_json"]),
+                                         "source_updated_at": row["source_updated_at"], "updated_at": row["updated_at"]}
+
+    def save_publication(self, article_id, values, source_version, expected_version):
+        from miyabi.publication import validate_pack
+        values = validate_pack(values)
+        stamp = now()
+        with self.connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            article = conn.execute("SELECT updated_at FROM articles WHERE id=?", (article_id,)).fetchone()
+            current = conn.execute("SELECT updated_at FROM publication_packs WHERE article_id=?", (article_id,)).fetchone()
+            if article is None or article[0] != source_version:
+                raise ConflictError("記事が変更または削除されました。投稿準備を退避し、記事の最新内容を読み込み直してください。")
+            if (current[0] if current else None) != expected_version:
+                raise ConflictError("投稿準備が他の画面で変更されました。退避して画面を再読み込みしてください。")
+            conn.execute("INSERT OR REPLACE INTO publication_packs VALUES (?,?,?,?)",
+                         (article_id, json.dumps(values, ensure_ascii=False), source_version, stamp))
+        return stamp
+
     @contextmanager
     def connection(self):
         conn = sqlite3.connect(self.path, timeout=10)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys=ON")
         try:
             with conn:
                 yield conn

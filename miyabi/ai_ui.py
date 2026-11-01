@@ -28,6 +28,7 @@ def workspace(store, target):
     spaces = st.session_state.setdefault("ai_workspaces", {})
     if target not in spaces:
         source = empty_article()
+        source["audience"] = st.session_state.get("saved_settings", {}).get("audience", source["audience"])
         version = None
         draft = st.session_state.drafts.get(target)
         if draft:
@@ -39,6 +40,7 @@ def workspace(store, target):
                 source.update({k: article[k] for k in FIELDS})
                 version = article["updated_at"]
         values = copy.deepcopy(DEFAULTS)
+        values["word_count"] = st.session_state.get("saved_settings", {}).get("word_count", 2000)
         values.update({k: source[k] for k in ("genre", "audience", "keyword", "search_intent", "title", "outline", "body")})
         values["existing_body"] = source["body"]
         values["theme"] = source["title"]
@@ -195,7 +197,7 @@ def render_ai(store):
             st.caption("空欄の経験はAIに創作させません。必要な箇所は入力を求める文章になります。個人名などの不要な個人情報は除いてください。")
     if v["genre"] in ("健康と美容", "お金とこれからの生活"):
         st.warning("健康・美容・お金の効果や結果は断定せず、公開前に信頼できる根拠を確認してください。")
-    request_values = dict(v)
+    request_values = dict(v) | {"tone": prefs.get("tone", "")}
     if kind == "outline":
         if v["outline_action"] == "新規・再生成":
             request_values["revision"] = ""
