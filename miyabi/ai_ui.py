@@ -8,6 +8,7 @@ import sqlite3
 import streamlit as st
 
 from miyabi import ai_client
+from miyabi.ai_controls import render_ai_settings, render_generation
 from miyabi.database import FIELDS, GENRES, empty_article
 from miyabi.export import article_markdown
 
@@ -120,9 +121,11 @@ def render_ai(store):
     st.caption("テーマ → タイトル → 構成 → 本文。各段階で選び直し・手動編集できます。")
     articles = store.list()
     labels = {"new": "新しい記事"} | {str(a["id"]): f'{a["title"]}（ID {a["id"]}）' for a in articles}
-    if st.session_state.get("ai_target", "new") not in labels:
+    st.session_state.setdefault("ai_target", st.session_state.get("ai_selected_target", "new"))
+    if st.session_state.ai_target not in labels:
         st.session_state.ai_target = "new"
     target = st.selectbox("作業する記事", list(labels), format_func=labels.get, key="ai_target")
+    st.session_state.ai_selected_target = target
     space = workspace(store, target)
     v = space["values"]
     st.info("AIの入力・候補は画面移動中は保持されますが、再読み込みや終了で失われます。「記事編集へ反映」→「記事を保存」で本文などを保存してください。生成しただけでは記事は変更されません。")
@@ -143,23 +146,7 @@ def render_ai(store):
             return st.number_input(label, **common, **kwargs)
         return st.text_input(label, **common, **kwargs)
 
-    prefs = st.session_state.setdefault("ai_preferences", {"model": ai_client.default_model(), "enabled": False})
-    with st.expander("AI利用設定・APIキーの設定方法", expanded=not ai_client.api_key_configured()):
-        for name in ("model", "enabled"):
-            st.session_state.setdefault(f"ai_pref_{name}", prefs[name])
-        def pref_change(name):
-            prefs[name] = st.session_state[f"ai_pref_{name}"]
-        st.text_input("OpenAIモデル名", key="ai_pref_model", on_change=pref_change, args=("model",))
-        st.checkbox("OpenAI APIを利用する（従量課金）", key="ai_pref_enabled", on_change=pref_change, args=("enabled",))
-        st.caption("モデルの利用可否はご契約により異なります。設定はこのセッションだけ保持します。既定値は .env の OPENAI_MODEL で指定できます。")
-        if ai_client.api_key_configured():
-            st.success("APIキー：設定あり（値は表示しません）")
-        else:
-            st.warning("APIキーは未設定です。記事の手動編集・保存は引き続き使えます。")
-        st.write("キーはチャットや画面に貼らず、アプリのフォルダーの .env に OPENAI_API_KEY を設定し、黒い画面でCtrl+Cを押して起動し直してください。.env.example をコピーして作成できます。")
-        st.link_button("OpenAI APIキーの管理画面", "https://platform.openai.com/api-keys")
-        st.link_button("OpenAI API料金を確認", "https://openai.com/api/pricing/")
-        st.caption("ChatGPTの有料プランとは別のAPI利用料金がかかります。入力・出力・選択モデルで料金が変わります。生成のたびに送信確認が必要です。")
+    prefs = render_ai_settings()
 
     step_key = f"ai_step_{target}"
     st.session_state.setdefault(step_key, space["step"])
@@ -221,41 +208,15 @@ def render_ai(store):
         request = ai_client.prepare_request(kind, request_values, prefs["model"])
     except ai_client.GenerationError as exc:
         st.caption(str(exc))
-    if request:
-        reviewed_key = f"reviewed_{target}_{kind}"
-        if st.button("送信内容を確認", key=f"preview_{target}_{kind}"):
-            space["review_counter"] = space.get("review_counter", 0) + 1
-            space[reviewed_key] = (request.fingerprint, space["review_counter"])
-        if space.get(reviewed_key, (None,))[0] == request.fingerprint:
-            st.subheader("OpenAIに送信する内容")
-            st.caption("今回送るのは下記の内容だけです。他の記事や備考、APIキーはこの表示には含めません。保存しない指定（store: false）で送信しますが、OpenAI側の保持条件はサービスのポリシーをご確認ください。")
-            with st.expander("送信データ全文（指示・素材・モデル・上限）", expanded=True):
-                st.json(request.payload(), expanded=False)
-            st.caption(f"出力トークン上限：{request.max_output_tokens:,}。上限は文字数や料金そのものではありません。")
-            consent = st.checkbox("送信内容と料金発生を確認しました", key=f"consent_{target}_{request.fingerprint}_{space[reviewed_key][1]}")
-            ready = consent and prefs["enabled"] and ai_client.api_key_configured()
-            action = {"themes": "テーマ5案を生成", "titles": "SEOタイトルを生成", "outline": "構成を再生成", "body": "本文を生成"}[kind]
-            if kind == "outline" and v["outline_action"] == "一部修正":
-                action = "構成の一部を修正"
-            if st.button(action, disabled=not ready, key=f"generate_{target}_{kind}", type="primary"):
-                space.pop(reviewed_key, None)
-                try:
-                    with st.spinner("生成しています。完了まで画面を閉じずにお待ちください。"):
-                        result = ai_client.generate(request)
-                except ai_client.GenerationError as exc:
-                    st.error(str(exc))
-                else:
-                    space["results"][kind] = {"data": result, "fingerprint": request.fingerprint, "input": request.input_json}
-                    # Demand a fresh confirmation for every billable call, including retry/regeneration.
-                    space.pop(reviewed_key, None)
-                    if kind in ("outline", "body"):
-                        output_field = "generated_" + kind
-                        set_value(target, output_field, result[kind])
-                    st.rerun()
-            if not ready:
-                st.caption("APIキーの設定、API利用の有効化、送信内容の確認がそろうと生成できます。")
-        else:
-            st.caption("入力やモデルを変えた場合は、もう一度「送信内容を確認」を押してください。")
+    action = {"themes": "テーマ5案を生成", "titles": "SEOタイトルを生成", "outline": "構成を再生成", "body": "本文を生成"}[kind]
+    if kind == "outline" and v["outline_action"] == "一部修正":
+        action = "構成の一部を修正"
+    generated = render_generation(request, space, f"{target}_{kind}", action)
+    if generated is not None:
+        space["results"][kind] = {"data": generated, "fingerprint": request.fingerprint, "input": request.input_json}
+        if kind in ("outline", "body"):
+            set_value(target, "generated_" + kind, generated[kind])
+        st.rerun()
 
     result = space["results"].get(kind)
     if result:

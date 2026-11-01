@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from dataclasses import dataclass
+from miyabi.review import STYLE_MODES, CHECK_CATEGORIES
 
 from openai import (
     OpenAI, APIConnectionError, APIStatusError, APITimeoutError,
@@ -69,8 +70,23 @@ BODY_SCHEMA = object_schema({
     "body": {"type": "string", "minLength": 1},
     "experience_questions": array_schema({"type": "string", "minLength": 1}, 0, 10),
 })
-SCHEMAS = {"themes": THEME_SCHEMA, "titles": TITLE_SCHEMA, "outline": OUTLINE_SCHEMA, "body": BODY_SCHEMA}
+STYLE_SCHEMA = object_schema({"converted": {"type": "string", "minLength": 1},
+                              "notes": array_schema({"type": "string", "minLength": 1}, 0, 8)})
+PROOF_SCHEMA = object_schema({"issues": array_schema(object_schema({
+    "category": {"type": "string", "enum": list(CHECK_CATEGORIES), "minLength": 1},
+    "before": {"type": "string", "minLength": 1}, "after": {"type": "string"},
+    "occurrence": {"type": "integer", "minimum": 1, "maximum": 1000},
+    "reason": {"type": "string", "minLength": 1}, "requires_source": {"type": "boolean"},
+}), 0, 40)})
+DUPLICATE_SCHEMA = object_schema({"findings": array_schema(object_schema({
+    **strings("article_id", "current_quote", "past_quote", "reason", "suggestion"),
+}), 0, 15)})
+SCHEMAS = {"themes": THEME_SCHEMA, "titles": TITLE_SCHEMA, "outline": OUTLINE_SCHEMA, "body": BODY_SCHEMA,
+           "style": STYLE_SCHEMA, "proof": PROOF_SCHEMA, "duplicate": DUPLICATE_SCHEMA}
 TASKS = {
+    "style": "指定のモードでみやびらしい文体へ変換。元の意味・主張・事実・数字・経験・話者の立場を変えず、経験や出典を足さない。導入文モードでも入力範囲だけを整える。convertedに変換全文、notesに主な変更点。",
+    "proof": "10項目（誤字脱字、不自然な日本語、同じ言葉の繰り返し、同じ内容の重複、長すぎる文章、読みにくい表現、見出しと本文の不一致、断定的すぎる表現、不安をあおる表現、根拠が必要な記述）を校正する。問題がある箇所だけ最大40件。beforeは本文から完全一致で引用し、occurrenceは同じ引用が本文で何番目に現れるかを1から指定（部分文字列を先頭から数える）。afterはその箇所だけの修正案で、削除なら空文字も可。修正範囲をなるべく重ねない。理由を記載。根拠確認が必要ならrequires_source=trueとし、出典は創作しない。問題が見つからなければ空配列。",
+    "duplicate": "現在の本文と、利用者が選んだ過去記事の抜粋を比較し、内容や論点が重複する可能性がある箇所を最大15件。article_idは入力IDをそのまま使い、current_quote/past_quoteは対応本文から完全一致で引用。重複の理由と切り口を変える提案を示す。単に同じ分野というだけでは重複と断定しない。問題がなければ空配列。外部検索や盗用判定はしない。",
     "themes": "記事テーマを必ず5案作成。各案に想定読者、検索意図、具体的な悩み、読むメリット、SEOキーワード候補、方向性、無料・有料記事との相性を記載。",
     "titles": "SEOタイトルを5〜10案作成。メインキーワードを自然に含め、検索意図と本文に一致させ、長すぎず内容が想像でき、過剰に煽らない。各案に検索意図・魅力・改善ポイントを記載。",
     "outline": "MarkdownでH1、導入で伝えること、親子関係が適切なH2・H3、各見出しの要点、まとめ、推奨文字数配分を作成。検索意図・見出し重複・H2/H3関係・論理展開・脱線・順序の6項目を自己点検。修正指定があるときは指定箇所だけを修正し他の構成を保つ。自己点検は参考評価。",
@@ -108,6 +124,9 @@ def prepare_request(kind: str, values: dict, model: str) -> GenerationRequest:
         raise GenerationError("利用するモデル名を正しく入力してください。")
     common = ("genre", "audience", "problem", "message", "purpose", "keyword")
     allowed = {
+        "style": ("genre", "audience", "body", "style_mode"),
+        "proof": ("title", "genre", "audience", "outline", "body"),
+        "duplicate": ("title", "body", "references"),
         "themes": common,
         "titles": (*common, "theme", "search_intent"),
         "outline": (*common, "theme", "title", "search_intent", "word_count", "revision", "outline"),
@@ -116,7 +135,24 @@ def prepare_request(kind: str, values: dict, model: str) -> GenerationRequest:
                  "experience_tried", "experience_message"),
     }[kind]
     data = {k: values.get(k, "") for k in allowed}
-    for field in (("problem",) if kind == "themes" else ("theme",) if kind == "titles" else ("title",)):
+    review_kind = kind in ("style", "proof", "duplicate")
+    if review_kind:
+        if not isinstance(data["body"], str) or not data["body"].strip():
+            raise GenerationError("確認する本文を入力してください。")
+        if kind == "style" and data["style_mode"] not in STYLE_MODES:
+            raise GenerationError("文体のモードを選んでください。")
+        if kind == "duplicate":
+            refs = data["references"]
+            if not isinstance(refs, list) or not 1 <= len(refs) <= 5:
+                raise GenerationError("比較する過去記事を1〜5件選んでください。")
+            if any(not isinstance(r, dict) or set(r) != {"article_id", "title", "excerpt"}
+                   or any(not isinstance(v, str) or not v.strip() for v in r.values())
+                   or len(r["excerpt"]) > 3000 for r in refs):
+                raise GenerationError("過去記事の抜粋は記事ID・タイトル・本文3000文字以内で指定してください。")
+            if len({r["article_id"] for r in refs}) != len(refs):
+                raise GenerationError("同じ過去記事が重複しています。")
+    required = () if review_kind else ("problem",) if kind == "themes" else ("theme",) if kind == "titles" else ("title",)
+    for field in required:
         if not str(data[field]).strip():
             raise GenerationError({"problem": "読者の悩み", "theme": "記事テーマ", "title": "タイトル"}[field] + "を入力してください。")
     if kind in ("outline", "body"):
@@ -145,6 +181,8 @@ def prepare_request(kind: str, values: dict, model: str) -> GenerationRequest:
     if len(raw) > 40000:
         raise GenerationError("送信する文章が長すぎます。合計40,000文字以内に短くしてください。")
     tokens = min(16000, max(5000, values.get("word_count", 2000) * 3)) if kind in ("outline", "body") else 6500
+    if review_kind:
+        tokens = 16000 if kind == "style" else 10000
     return GenerationRequest(kind, model, raw, tokens)
 
 
@@ -161,7 +199,13 @@ def validate_result(data, schema: dict):
             raise GenerationError("AIの候補数が指定と異なります。再生成してください。")
         for item in data:
             validate_result(item, schema["items"])
-    elif not isinstance(data, str) or not data.strip():
+    elif kind == "integer":
+        if type(data) is not int or not schema["minimum"] <= data <= schema["maximum"]:
+            raise GenerationError("AIの引用位置が正しくありません。再度校正してください。")
+    elif kind == "boolean":
+        if type(data) is not bool:
+            raise GenerationError("AIの回答形式が正しくありません。再度お試しください。")
+    elif not isinstance(data, str) or len(data.strip()) < schema.get("minLength", 0) or ("enum" in schema and data not in schema["enum"]):
         raise GenerationError("AIの回答に空欄または不正な項目があります。再生成してください。")
 
 
@@ -183,6 +227,13 @@ def generate(request: GenerationRequest) -> dict:
             raise GenerationError("AIの回答を読み取れませんでした。入力を変更して再度お試しください。")
         result = json.loads(response.output_text)
         validate_result(result, SCHEMAS[request.kind])
+        if request.kind == "duplicate":
+            material = json.loads(request.input_json)["material"]
+            references = {r["article_id"]: r["excerpt"] for r in material["references"]}
+            for finding in result["findings"]:
+                past = references.get(finding["article_id"])
+                if past is None or finding["current_quote"] not in material["body"] or finding["past_quote"] not in past:
+                    raise GenerationError("AIの比較結果の引用が送信した文章と一致しません。以前の結果を残したまま、再度確認できます。")
         return result
     except AuthenticationError:
         raise GenerationError("APIキーを確認できませんでした。.env の設定を確認し、アプリを再起動してください。") from None

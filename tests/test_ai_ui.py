@@ -155,6 +155,16 @@ class AiUiTests(unittest.TestCase):
         self.assertEqual(self.store.get(i)['body'], '別画面からの更新')
         self.assertEqual(self.app.text_area(key=f'edit_{i}_body').value, '最初の本文')
 
+    def test_saved_article_ai_selection_survives_visiting_another_page(self):
+        i = self.store.save(empty_article() | {'title': '選択を保持する記事', 'body': '入力済みの本文'})
+        self.app.run()
+        self.app.selectbox(key='ai_target').set_value(str(i)).run()
+        self.app.text_area(key=f'ai_{i}_problem').set_value('保持する悩み').run()
+        self.app.radio(key='page').set_value('ホーム').run()
+        self.app.radio(key='page').set_value('AI記事づくり').run(); self.clean()
+        self.assertEqual(self.app.selectbox(key='ai_target').value, str(i))
+        self.assertEqual(self.app.text_area(key=f'ai_{i}_problem').value, '保持する悩み')
+
     def test_six_modes_and_partial_outline_send_expected_inputs(self):
         self.configure()
         self.app.radio(key='ai_step_new').set_value('④ 本文執筆').run()

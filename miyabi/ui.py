@@ -8,8 +8,9 @@ from miyabi.database import ArticleStore, FIELDS, GENRES, STATUSES, empty_articl
 from miyabi.export import article_markdown, article_text, download_name
 from miyabi.ai_client import api_key_configured
 from miyabi.ai_ui import AI_PAGE, render_ai
+from miyabi.review_ui import STYLE_PAGE, PROOF_PAGE, DUPLICATE_PAGE, render_style, render_proofreading, render_duplicates
 
-PAGES = ("ホーム", "記事を書く・編集する", "記事一覧", "出力・投稿準備", "このアプリについて", AI_PAGE)
+PAGES = ("ホーム", "記事を書く・編集する", "記事一覧", "出力・投稿準備", "このアプリについて", AI_PAGE, STYLE_PAGE, PROOF_PAGE, DUPLICATE_PAGE)
 LABELS = {
     "title": "タイトル（必須）", "genre": "ジャンル", "audience": "対象読者",
     "keyword": "メインキーワード", "search_intent": "検索意図・読者の悩み",
@@ -134,6 +135,10 @@ def render_editor(store):
             st.session_state.editor_id = saved_id
             st.session_state.flash = "記事を保存しました。"
             st.rerun()
+    def open_review(page):
+        st.session_state.review_target = key
+        st.session_state.page = page
+    st.button("本文を校正・確認する", on_click=open_review, args=(PROOF_PAGE,))
     st.subheader("入力中の文章を出力")
     st.caption("未保存の内容も出力できます。備考と構成メモは含みません。")
     export_buttons(draft["values"], f"editor_{key}")
@@ -215,12 +220,12 @@ def render_export(store):
 
 def render_about(store):
     st.header("このアプリについて")
-    st.write("みやび AIライティングスタジオ · 第2段階")
+    st.write("みやび AIライティングスタジオ · 第3段階")
     st.write("記事の作成・編集・保存・検索・複製・削除と、Markdown／テキスト出力を利用できます。")
     st.caption(f"データ保存先：{store.path}")
     st.write("APIキー：" + ("設定あり（値は表示しません）" if api_key_configured() else "未設定。記事の手動編集・保存は利用できます。"))
     st.info("「AI記事づくり」でテーマ・タイトル・構成・本文の生成を利用できます。APIキー設定と送信内容・料金の確認後にのみOpenAIへ送信します。生成しなければAPI料金は発生しません。")
-    st.write("今後の追加予定：文体変換、校正・重複チェック、投稿準備支援、詳細ダッシュボード、設定・バックアップ画面。")
+    st.write("文体変換・1件ずつ採用できるAI校正・重複チェックも利用できます。今後の追加予定：投稿準備支援、詳細ダッシュボード、設定・バックアップ画面。")
     st.write("保存済みデータの退避方法：アプリを停止した後、保存先フォルダー内の miyabi.sqlite3 を別の安全な場所へコピーしてください。復元時もアプリを停止し、現在のファイルを退避してから戻します。")
 
 
@@ -255,12 +260,12 @@ def render_app(store: ArticleStore):
                     st.session_state.editor_id = None if k == "new" else int(k)
                     st.session_state.page = PAGES[1]
                 st.button(f"下書きに戻る：{title}", key=f"resume_{key}", on_click=resume)
-        st.caption("第2段階 ｜ 記事制作とAI執筆支援")
+        st.caption("第3段階 ｜ 執筆・文体・校正・重複確認")
     st.title("みやび AIライティングスタジオ")
     st.caption("みやびのnote ｜ 経験と思いを、あなたらしい言葉で。")
     if "flash" in st.session_state:
         st.success(st.session_state.pop("flash"))
-    renderers = dict(zip(PAGES, (render_home, render_editor, render_list, render_export, render_about, render_ai)))
+    renderers = dict(zip(PAGES, (render_home, render_editor, render_list, render_export, render_about, render_ai, render_style, render_proofreading, render_duplicates)))
     try:
         renderers[page](store)
     except (sqlite3.Error, OSError):
